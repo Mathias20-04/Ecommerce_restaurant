@@ -13,3 +13,9 @@ Step 1: Clone the Project
 Open terminal/command prompt and run:
 git clone https://github.com/Mathias20-04/Ecommerce_restaurant.git
 cd aunt-joy-restaurant
+
+locate this cloned folder in the xammp/php folder and create a folder called projects/
+
+rename the Ecommerce_restaurant -> aunt-joy-restaurant 
+
+

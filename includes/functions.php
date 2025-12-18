@@ -86,13 +86,13 @@ function handlePreflight() {
     }
 }
 
-// Frontend redirect (for non-API pages)
+// Frontend redirect (
 function redirect($url) {
     header("Location: " . $url);
     exit;
 }
 
-// Display alert messages (for frontend)
+// Display alert messages 
 function displayAlert() {
     if(isset($_SESSION['alert'])) {
         echo '<div class="alert alert-' . $_SESSION['alert']['type'] . '">' . $_SESSION['alert']['message'] . '</div>';
@@ -100,7 +100,7 @@ function displayAlert() {
     }
 }
 
-// Set alert message (for frontend)
+// Set alert message 
 function setAlert($message, $type = 'info') {
     $_SESSION['alert'] = [
         'message' => $message,
@@ -108,7 +108,6 @@ function setAlert($message, $type = 'info') {
     ];
 }
 
-// Validate uploaded image// includes/functions.php - Add these functions
 
 function handleImageUpload($file, $meal_id) {
     try {
