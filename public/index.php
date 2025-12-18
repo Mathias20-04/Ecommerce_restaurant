@@ -1097,7 +1097,7 @@ $currentUser = $auth->getCurrentUser();
 
         <div class="container">
             <div class="hero-content">
-                <h1>Welcome to Aunt Joy's Restaurant</h1>
+                <h1>Welcome to Aunt Joy<span>'s Restaurant</span></h1>
                 <p>Experience the finest cuisine in Mzuzu, delivered straight to your doorstep. Fresh ingredients, authentic flavors, and exceptional service.</p>
                 <a href="#meals-section" class="btn btn-hero">
                     <i class="fas fa-utensils"></i> Discover Our Menu

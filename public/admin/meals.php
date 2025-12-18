@@ -821,7 +821,7 @@ closeDBConnection($conn);
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo htmlspecialchars($meal['category_name']); ?></td>
-                                    <td><strong>$<?php echo number_format($meal['price'], 2); ?></strong></td>
+                                    <td><strong>Mk<?php echo number_format($meal['price'], 2); ?></strong></td>
                                     <td><?php echo $meal['preparation_time']; ?> min</td>
                                     <td>
                                         <?php if($meal['is_available']): ?>

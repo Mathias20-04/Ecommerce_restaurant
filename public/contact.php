@@ -550,7 +550,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <li><a href="index.php">Home</a></li>
                     <li><a href="about.php">About</a></li>
                     <li><a href="contact.php" style="background: #e74c3c; color: white;">Contact</a></li>
-                    <li><a href="index.php#categories">Menu</a></li>
+                    <li><a href="categories.php">Menu</a></li>
                 </ul>
             </nav>
         </div>
@@ -761,7 +761,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="footer-section">
                     <h3>Contact Info</h3>
                     <p><i class="fas fa-map-marker-alt"></i> Mzuzu City Center</p>
-                    <p><i class="fas fa-phone"></i> +265 888 123 456</p>
+                    <p><i class="fas fa-phone"></i> +265 998588582</p>
                     <p><i class="fas fa-envelope"></i> info@auntjoys.mw</p>
                 </div>
                 

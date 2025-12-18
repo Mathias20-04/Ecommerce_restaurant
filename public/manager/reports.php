@@ -71,6 +71,7 @@ $base_url = 'http://' . $_SERVER['HTTP_HOST'] . '/projects/aunt-joy-restaurant';
             display: flex;
             align-items: center;
             gap: 1rem;
+            color:#e1e5e9;
         }
 
         .header-nav {

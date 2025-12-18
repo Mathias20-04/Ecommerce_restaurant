@@ -46,14 +46,37 @@ try {
         $total_amount += $item['price'] * $item['quantity'];
     }
     
+    // Add delivery fee
+    $delivery_fee = 1500;
+    $total_amount += $delivery_fee;
+    
+    // Prepare payment details
+    $payment_method = isset($input['payment_method']) ? $input['payment_method'] : 'cash';
+    $payment_details = null;
+    
+    // SET PAYMENT STATUS BASED ON PAYMENT METHOD
+    if ($payment_method === 'mobile') {
+        $payment_status = 'paid';
+        // Also encode payment details if provided
+        if (isset($input['payment_details'])) {
+            $payment_details = json_encode($input['payment_details']);
+        }
+    } else {
+        // For cash on delivery, default to pending
+        $payment_status = 'pending';
+    }
+    
     // Create order
     $delivery_address = sanitizeInput($input['delivery_address']);
     $customer_phone = sanitizeInput($input['customer_phone']);
     $special_instructions = sanitizeInput($input['special_instructions'] ?? '');
     $customer_id = $_SESSION['user_id'];
     
-    $order_stmt = $conn->prepare("INSERT INTO orders (customer_id, total_amount, delivery_address, customer_phone, special_instructions) VALUES (?, ?, ?, ?, ?)");
-    $order_stmt->bind_param("idsss", $customer_id, $total_amount, $delivery_address, $customer_phone, $special_instructions);
+    // CORRECTED: Include payment_status in the INSERT statement
+    $order_stmt = $conn->prepare("INSERT INTO orders (customer_id, total_amount, delivery_address, customer_phone, special_instructions, payment_method, payment_details, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    // CORRECTED: Bind 8 parameters instead of 7
+    $order_stmt->bind_param("idssssss", $customer_id, $total_amount, $delivery_address, $customer_phone, $special_instructions, $payment_method, $payment_details, $payment_status);
     
     if (!$order_stmt->execute()) {
         throw new Exception("Failed to create order: " . $conn->error);
@@ -86,10 +109,13 @@ try {
     // Clear cart after successful order
     unset($_SESSION['cart']);
     
+    // Include payment_status in the response
     jsonResponse(true, 'Order created successfully', [
         'order_id' => $order_id,
         'total_amount' => $total_amount,
-        'delivery_address' => $delivery_address
+        'delivery_address' => $delivery_address,
+        'payment_method' => $payment_method,
+        'payment_status' => $payment_status  // Added this
     ], 201);
     
 } catch (Exception $e) {
