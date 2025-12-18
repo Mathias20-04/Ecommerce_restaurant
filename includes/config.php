@@ -4,15 +4,15 @@
 // Database Configuration
 $db_config = [
     'host' => 'localhost',
-    'username' => 'root', // Change to your MySQL username
+    'username' => 'root', 
     'password' => '1234@mathias@1234', 
-    'database' => 'aunt_joy_restaurant' // Change to your database name
+    'database' => 'aunt_joy_restaurant'
 ];
 
 // Application Settings
 define('SITE_NAME', 'Aunt Joy\'s Restaurant');
-define('SITE_URL', 'http://localhost:8000'); // Adjust port as needed
-define('BASE_PATH', '/projects/aunt-joy-restaurant/'); // Adjust to your project path
+define('SITE_URL', 'http://localhost:8000'); 
+define('BASE_PATH', '/projects/aunt-joy-restaurant/');
 
 // File Upload Configuration
 define('UPLOAD_DIR', '../../assets/images/meals/');

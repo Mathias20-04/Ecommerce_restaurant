@@ -168,7 +168,7 @@ function deleteImageFile($image_path) {
     }
 }
 
-// includes/functions.php - Add this function
+
 
 function getAvailableMeals($category_id = null, $limit = null) {
     $conn = getDBConnection();

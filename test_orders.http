@@ -1,0 +1,31 @@
+### Checkout - Create order from cart
+POST http://localhost:8000/projects/aunt-joy-restaurant/api/orders/checkout.php
+Content-Type: application/json
+
+{
+  "delivery_address": "123 Mzuzu Street, Mzuzu",
+  "customer_phone": "0881234567",
+  "special_instructions": "Please ring the bell twice"
+}
+
+### Get user's orders
+GET http://localhost:8000/projects/aunt-joy-restaurant/api/orders/list.php
+
+### Get order details
+GET http://localhost:8000/projects/aunt-joy-restaurant/api/orders/details.php?id=1
+
+### Sales: Get all orders
+GET http://localhost:8000/projects/aunt-joy-restaurant/api/sales/orders/list.php
+
+### Sales: Get orders by status
+GET http://localhost:8000/projects/aunt-joy-restaurant/api/sales/orders/list.php?status=preparing
+
+### Sales: Update order status
+PUT http://localhost:8000/projects/aunt-joy-restaurant/api/sales/orders/update-status.php
+Content-Type: application/json
+
+{
+  "order_id": 1,
+  "status": "out_for_delivery",
+  "status_notes": "Driver assigned - John"
+}

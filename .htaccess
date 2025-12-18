@@ -1,0 +1,30 @@
+# .htaccess
+ErrorDocument 404 /projects/aunt-joy-restaurant/404.php
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Set base path for rewrites
+RewriteBase /projects/aunt-joy-restaurant/
+
+# Redirect to 404 for non-existent PHP files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} \.php$ [NC]
+RewriteRule .* 404.php [L]
+
+# Optional: Clean URLs (remove .php extension)
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# Prevent access to sensitive files
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|inc|bak|sql)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Enable CORS for your domain
+Header set Access-Control-Allow-Origin "http://localhost:8000"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"

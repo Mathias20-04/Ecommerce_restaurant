@@ -380,8 +380,7 @@ class CartManager {
         }
     }
 
-    // Keep your existing updateQuantity, updateOrderSummary, updateCartCount, and showNotification methods
-    // ... (your existing methods remain the same)
+   
 
     updateOrderSummary() {
         const subtotal = this.cart.reduce((sum, item) => {
@@ -391,7 +390,7 @@ class CartManager {
         }, 0);
         
         const deliveryFee = 1500;
-        const tax = subtotal * 0.1; // 10% tax
+        const tax = subtotal * 0.1; 
         const total = subtotal + deliveryFee + tax;
         const totalItems = this.cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 

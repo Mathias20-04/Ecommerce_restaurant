@@ -88,7 +88,7 @@ class MenuManager {
         this.searchTimeout = setTimeout(() => {
             if (!searchTerm.trim()) {
                 this.hideSearchResults();
-                // If we're in a category view and search is cleared, show all category meals
+                
                 if (this.currentCategory) {
                     this.renderMeals();
                 }

@@ -30,15 +30,19 @@ body {
 }
 
 /* Typography */
-h1, h2, h3, h4, h5, h6 {
+h2, h3, h4, h5, h6 {
     margin-bottom: 1rem;
     color: var(--header-color);
 }
 
-h1 { font-size: 2.5rem; }
+h1 { font-size: 3.5rem; 
+    color:linear-gradient(transparent, rgba(189, 162, 162, 0.8));}
 h2 { font-size: 2rem; }
 h3 { font-size: 1.75rem; }
 h4 { font-size: 1.5rem; }
+h1 span {
+    color: var(--primary-color);
+}
 
 p { margin-bottom: 1rem;
 font-weight: bold;
@@ -62,7 +66,7 @@ a:hover {
 }
 
 .header {
-    background: var(--white);
+    background:linear-gradient(135deg, var(--gray-light), var(--light-color));
     box-shadow: var(--shadow);
     position: sticky;
     top: 0;
@@ -484,18 +488,18 @@ a:hover {
 
 /* Slide backgrounds - you can replace these with actual restaurant images */
 .slide-1 {
-    background-image: linear-gradient(rgba(242, 245, 243, 0.473), rgba(0, 0, 0, 0.7)), 
-                url('../../assets/images/meals/istockphoto1.jpg');
+    background-image: linear-gradient(rgba(242, 245, 243, 0.082), rgba(0, 0, 0, 0.171)), 
+                url('../../assets/uploads/beef_potatos.jpg');
 }
 
 .slide-2 {
-    background-image: linear-gradient(rgba(83, 126, 83, 0.521), rgba(93, 177, 166, 0.39)), 
-                url('../../assets/images/meals/istockphoto2.jpg');
+    background-image: linear-gradient(rgba(83, 126, 83, 0.144), rgba(93, 177, 166, 0.164)), 
+                url('../../assets/uploads/chicken_curry.jpg');
 }
 
 .slide-3 {
-    background-image: linear-gradient(rgba(193, 219, 74, 0.459), rgba(93, 177, 166, 0.39)), 
-                url('../../assets/images/meals/tmix_food.avif');
+    background-image: linear-gradient(rgba(192, 219, 74, 0.226), rgba(93, 177, 166, 0.253)), 
+                url('../../assets/uploads/IMG-20251203-WA0008.jpg');
 }
 
 

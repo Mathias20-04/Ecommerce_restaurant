@@ -166,6 +166,26 @@ closeDBConnection($conn);
             display: none;
         }
 
+        
+            .mobile-number.valid {
+                border-color: #48bb78;
+            }
+
+            .mobile-number.invalid {
+                border-color: #e53e3e;
+            }
+
+            .provider-match {
+                color: #48bb78;
+                font-size: 0.875rem;
+                margin-top: 0.25rem;
+            }
+
+            .provider-mismatch {
+                color: #e53e3e;
+                font-size: 0.875rem;
+                margin-top: 0.25rem;
+            }
         .order-summary {
             position: sticky;
             top: 2rem;
@@ -397,17 +417,16 @@ closeDBConnection($conn);
                     <label class="payment-method" id="mobile-payment">
                         <input type="radio" name="payment-method" value="mobile">
                         <div>📱 Mobile Money</div>
-                        <small>Airtel Money, TNM Mpamba</small>
+                       <small>
+                    <i class="fas fa-mobile-alt"></i> 
+                    Airtel Money: 099 or 09 | TNM Mpamba: 088 or 08
+                </small>
                     </label>
                 </div>
 
                 <div id="mobile-payment-details" style="display: none; margin-top: 1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Mobile Money Number</label>
-                        <input type="tel" class="form-control" id="mobile-number" 
-                               placeholder="Enter your mobile money number">
-                    </div>
-                    <div class="form-group">
+
+                <div class="form-group">
                         <label class="form-label">Provider</label>
                         <select class="form-control" id="mobile-provider">
                             <option value="">Select provider</option>
@@ -415,6 +434,12 @@ closeDBConnection($conn);
                             <option value="tnm">TNM Mpamba</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Mobile Money Number</label>
+                        <input type="tel" class="form-control" id="mobile-number" 
+                               placeholder="Enter your mobile money number">
+                    </div>
+                    
                 </div>
             </div>
         </div>

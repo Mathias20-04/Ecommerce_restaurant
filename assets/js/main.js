@@ -112,7 +112,7 @@ class App {
         if (data.success) {
             this.showNotification('Added to cart!', 'success');
             
-            // FIX: Update local cart with the response data
+            
             if (data.data.cart) {
                 this.cart = data.data.cart;
                 this.saveCart();
