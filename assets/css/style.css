@@ -489,17 +489,17 @@ a:hover {
 /* Slide backgrounds - you can replace these with actual restaurant images */
 .slide-1 {
     background-image: linear-gradient(rgba(242, 245, 243, 0.082), rgba(0, 0, 0, 0.171)), 
-                url('../../assets/uploads/beef_potatos.jpg');
+                url('../../assets/uploads/chips.jpg');
 }
 
 .slide-2 {
     background-image: linear-gradient(rgba(83, 126, 83, 0.144), rgba(93, 177, 166, 0.164)), 
-                url('../../assets/uploads/chicken_curry.jpg');
+                url('../../assets/uploads/chicken_bugger.jpg');
 }
 
 .slide-3 {
     background-image: linear-gradient(rgba(192, 219, 74, 0.226), rgba(93, 177, 166, 0.253)), 
-                url('../../assets/uploads/IMG-20251203-WA0008.jpg');
+                url('../../assets/uploads/chicken_bugger.jpg');
 }
 
 

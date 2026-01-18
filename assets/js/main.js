@@ -2,154 +2,220 @@
 class App {
     constructor() {
         this.currentUser = null;
-        this.cart = JSON.parse(localStorage.getItem('cart')) || [];
+        this.cart = [];
+        this.isAuthenticated = false;
+        // Use relative path for API
+        this.apiBaseUrl = '/projects/aunt-joy-restaurant/api';
         this.init();
     }
 
     init() {
-        this.checkAuthStatus();
-        this.updateUI();
-        this.setupEventListeners();
-        // for temporal debugging
-         setTimeout(() => {
-        this.debugCart();
-    }, 1000);
+        // Check auth status first
+        this.checkAuthStatus().then(() => {
+            this.updateUI();
+            this.setupEventListeners();
+            
+            // Debug
+            setTimeout(() => {
+                this.debugCart();
+                this.debugSession();
+            }, 1000);
+        });
     }
 
-    // API Call helper 
-    async apiCall(endpoint, options = {}) {
-        const baseUrl = 'http://localhost:8000/projects/aunt-joy-restaurant/api';
-        const url = baseUrl + endpoint;
+    // Debug session
+    async debugSession() {
+        try {
+            const response = await fetch(this.apiBaseUrl + '/auth/session-check.php', {
+                credentials: 'include'
+            });
+            const data = await response.json();
+            console.log('🔍 Session Debug:', data);
+        } catch (error) {
+            console.error('Session debug error:', error);
+        }
+    }
+
+    // Enhanced API Call with better session handling
+    async apiCall(endpoint, method = 'GET', data = null, options = {}) {
+        console.log(`📡 API Call: ${endpoint}`);
+        
+        const url = this.apiBaseUrl + endpoint;
         
         const config = {
-            credentials: 'include',
+            method: method,
             headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
             },
+            credentials: 'include', // IMPORTANT: This sends cookies
             ...options
         };
-
+        
+        // Add body for POST/PUT requests
+        if (data && (method === 'POST' || method === 'PUT')) {
+            config.body = JSON.stringify(data);
+        }
+        
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
+            console.log(`📊 Response status for ${endpoint}: ${response.status}`);
             
-            if (!data.success) {
-                throw new Error(data.message || 'API request failed');
+            // Handle 401 specifically
+            if (response.status === 401) {
+                console.warn('⚠️ 401 Unauthorized - Session may have expired');
+                this.currentUser = null;
+                localStorage.removeItem('user');
+                this.updateUI();
+                
+                // Don't throw error for auth check endpoints
+                if (endpoint.includes('/auth/')) {
+                    const result = await response.json();
+                    return result;
+                }
+                
+                throw new Error('Session expired. Please login again.');
             }
             
-            return data;
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.message || `HTTP ${response.status}`);
+            }
+            
+            return result;
         } catch (error) {
-            console.error('API Call failed:', error);
+            console.error(`❌ API Call failed for ${endpoint}:`, error);
             throw error;
         }
     }
 
     // Authentication methods
     async checkAuthStatus() {
-        try {
-            const data = await this.apiCall('/user/profile.php');
-            this.currentUser = data.user;
-            this.updateUI();
-        } catch (error) {
-            this.currentUser = null;
-            console.log('Not logged in:', error.message);
-        }
-    }
-
-    async login(username, password) {
-        try {
-            const data = await this.apiCall('/auth/login.php', {
-                method: 'POST',
-                body: JSON.stringify({ username, password })
-            });
+    console.log('🔍 Checking auth status...');
+    
+    try {
+        // First check session via PHP
+        const sessionResponse = await fetch(this.apiBaseUrl + '/auth/check.php', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        const sessionResult = await sessionResponse.json();
+        console.log('Session check result:', sessionResult);
+        
+        if (sessionResult.success && sessionResult.data && sessionResult.data.user) {
+            this.currentUser = sessionResult.data.user;
+            this.isAuthenticated = true;
+            localStorage.setItem('user', JSON.stringify(sessionResult.data.user));
+            console.log('✅ User authenticated via session:', this.currentUser);
             
-            this.currentUser = data.user;
-            this.updateUI();
-            return { success: true, user: data.user };
-        } catch (error) {
-            return { success: false, message: error.message };
+            // Add dashboard link based on role
+            this.addDashboardLink();
+            
+            this.updateAuthUI();
+            return true;
+        } else {
+            // Clear everything
+            this.currentUser = null;
+            this.isAuthenticated = false;
+            localStorage.removeItem('user');
+            console.log('❌ Not authenticated');
+            this.updateAuthUI();
+            return false;
         }
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        this.currentUser = null;
+        this.isAuthenticated = false;
+        this.updateAuthUI();
+        return false;
     }
+}
 
+   // Update login method:
+async login(username, password) {
+    console.log('🔐 Attempting login...');
+    try {
+        const response = await this.apiCall('/auth/login.php', 'POST', { username, password });
+        
+        if (response.success && response.data && response.data.user) {
+            this.currentUser = response.data.user;
+            this.isAuthenticated = true;
+            console.log('✅ Login successful:', this.currentUser);
+            
+            // Add dashboard link based on role
+            this.addDashboardLink();
+            
+            this.updateUI();
+            return { success: true, user: response.data.user };
+        } else {
+            throw new Error(response.message || 'Login failed');
+        }
+    } catch (error) {
+        console.error('❌ Login failed:', error);
+        return { success: false, message: error.message };
+    }
+    }  
+    
+    
     async logout() {
+        console.log('🚪 Logging out...');
         try {
-            await this.apiCall('/auth/logout.php', { method: 'POST' });
+            await this.apiCall('/auth/logout.php', 'POST', {});
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
             this.currentUser = null;
+            this.isAuthenticated = false;
             this.cart = [];
             localStorage.removeItem('cart');
+            localStorage.removeItem('user');
             this.updateUI();
             window.location.href = 'index.php';
         }
     }
-    
 
-  async addToCart(meal) {
-    try {
-        console.log('=== ADD TO CART START ===');
-        console.log('Meal being added:', meal);
+    // Update addToCart to handle guest users better
+    async addToCart(meal) {
+        if (!this.isAuthenticated) {
+            this.showNotification('Please login to add items to cart', 'warning');
+            // Redirect to login after 2 seconds
+            setTimeout(() => {
+                window.location.href = 'login.php';
+            }, 2000);
+            return { success: false, message: 'Login required' };
+        }
         
-        const response = await fetch('/projects/aunt-joy-restaurant/api/cart/add.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
+        try {
+            console.log('🛒 Adding to cart:', meal);
+            
+            const data = await this.apiCall('/cart/add.php', 'POST', {
                 meal_id: meal.meal_id,
                 quantity: 1
-            })
-        });
-
-        console.log('Add to cart response status:', response.status);
-        
-        const data = await response.json();
-        console.log('Add to cart response data:', data);
-        
-        if (data.success) {
+            });
+            
             this.showNotification('Added to cart!', 'success');
             
-            
-            if (data.data.cart) {
-                this.cart = data.data.cart;
-                this.saveCart();
-                this.updateCartUI();
-            } else {
-                // Fallback: reload cart from server
-                await this.loadCartFromServer();
-            }
-            
-            // Refresh cart page if open
-            if (window.cartManager) {
-                await window.cartManager.refreshCart();
-            }
+            // Refresh cart data
+            await this.loadCartFromServer();
             
             return { success: true };
-        } else {
-            const errorMsg = data.message || 'Failed to add item to cart';
-            console.error('Add to cart failed:', errorMsg);
-            this.showNotification(errorMsg, 'error');
-            return { success: false, message: errorMsg };
+        } catch (error) {
+            console.error('Failed to add to cart:', error);
+            this.showNotification('Failed to add item to cart', 'error');
+            return { success: false, message: error.message };
         }
-    } catch (error) {
-        console.error('Failed to add to cart:', error);
-        const errorMsg = 'Failed to add to cart. Please try again.';
-        this.showNotification(errorMsg, 'error');
-        return { success: false, message: errorMsg };
     }
- }
 
     async removeFromCart(mealId) {
         try {
-            await this.apiCall('/cart/update.php', {
-                method: 'PUT',
-                body: JSON.stringify({
-                    meal_id: mealId,
-                    quantity: 0
-                })
+            await this.apiCall('/cart/update.php', 'PUT', {
+                meal_id: mealId,
+                quantity: 0
             });
             
             this.cart = this.cart.filter(item => item.meal_id !== mealId);
@@ -163,12 +229,9 @@ class App {
 
     async updateCartQuantity(mealId, quantity) {
         try {
-            await this.apiCall('/cart/update.php', {
-                method: 'PUT',
-                body: JSON.stringify({
-                    meal_id: mealId,
-                    quantity: quantity
-                })
+            await this.apiCall('/cart/update.php', 'PUT', {
+                meal_id: mealId,
+                quantity: quantity
             });
             
             const item = this.cart.find(item => item.meal_id === mealId);
@@ -188,44 +251,44 @@ class App {
     }
 
     async loadCartFromServer() {
-    try {
-        const response = await fetch('/projects/aunt-joy-restaurant/api/cart/get.php', {
-            credentials: 'include'
-        });
-        const data = await response.json();
-        
-        console.log('Cart data from server:', data);
-        
-        if (data.success) {
-            // FIX: Changed from data.data.items to data.data.cart
-            this.cart = data.data.cart || []; 
-            this.saveCart();
-            this.updateCartUI();
-            console.log('Cart loaded successfully:', this.cart);
-        } else {
-            console.error('Failed to load cart:', data.message);
+        if (!this.isAuthenticated) {
             this.cart = [];
-            this.saveCart();
+            this.updateCartUI();
+            return;
+        }
+        
+        try {
+            const data = await this.apiCall('/cart/get.php');
+            
+            if (data.success) {
+                this.cart = data.data?.cart || data.data?.items || data.cart || [];
+                console.log('🛒 Cart loaded:', this.cart);
+                
+                // Save to localStorage for persistence
+                localStorage.setItem('cart', JSON.stringify(this.cart));
+                
+                this.updateCartUI();
+            } else {
+                console.error('Failed to load cart:', data.message);
+                this.cart = [];
+                this.updateCartUI();
+            }
+        } catch (error) {
+            console.error('Failed to load cart from server:', error);
+            this.cart = [];
             this.updateCartUI();
         }
-    } catch (error) {
-        console.error('Failed to load cart from server:', error);
-        this.cart = [];
-        this.saveCart();
-        this.updateCartUI();
-    }
     }
 
     getCartTotal() {
-        return this.cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+        if (!Array.isArray(this.cart)) return 0;
+        return this.cart.reduce((total, item) => total + ((item.price || 0) * (item.quantity || 1)), 0);
     }
 
     getCartCount() {
-    if (!this.cart || !Array.isArray(this.cart)) {
-        return 0;
+        if (!Array.isArray(this.cart)) return 0;
+        return this.cart.reduce((total, item) => total + (item.quantity || 1), 0);
     }
-    return this.cart.reduce((count, item) => count + (item.quantity || 1), 0);
-     }
 
     saveCart() {
         localStorage.setItem('cart', JSON.stringify(this.cart));
@@ -236,59 +299,52 @@ class App {
         this.updateAuthUI();
         this.updateCartUI();
     }
-    // for cart debugging
+    
     async debugCart() {
-    console.log('=== CART DEBUG INFO ===');
-    console.log('Current user:', this.currentUser);
-    console.log('Local cart:', this.cart);
-    console.log('Cart count:', this.getCartCount());
-    
-    try {
-        const response = await fetch('/projects/aunt-joy-restaurant/api/cart/get.php', {
-            credentials: 'include'
-        });
-        const data = await response.json();
-        console.log('Server cart response:', data);
-    } catch (error) {
-        console.error('Debug cart error:', error);
-    }
-    console.log('========================');
-}
-
-  
-updateAuthUI() {
-    const authElements = document.querySelectorAll('.auth-required');
-    const guestElements = document.querySelectorAll('.guest-required');
-    const userDisplayName = document.getElementById('user-display-name');
-
-    if (this.currentUser) {
-        authElements.forEach(el => el.style.display = 'block');
-        guestElements.forEach(el => el.style.display = 'none');
+        console.log('=== CART DEBUG INFO ===');
+        console.log('Current user:', this.currentUser);
+        console.log('Is authenticated:', this.isAuthenticated);
+        console.log('Local cart:', this.cart);
+        console.log('Cart count:', this.getCartCount());
         
-        if (userDisplayName) {
-            // Display first name or username
-            const displayName = this.currentUser.full_name ? 
-                this.currentUser.full_name.split(' ')[0] : 
-                this.currentUser.username;
-            userDisplayName.textContent = displayName;
+        try {
+            const data = await this.apiCall('/cart/get.php');
+            console.log('Server cart response:', data);
+        } catch (error) {
+            console.log('Debug cart error:', error.message);
         }
-        
-        // Add dashboard link if user is admin, manager, or sales
-        this.addDashboardLink();
-        
-        // Load server cart when user is authenticated
-        this.loadCartFromServer();
-    } else {
-        authElements.forEach(el => el.style.display = 'none');
-        guestElements.forEach(el => el.style.display = 'block');
-        
-        if (userDisplayName) {
-            userDisplayName.textContent = '';
-        }
+        console.log('========================');
     }
     
-    this.updateCartUI();
-}
+    updateAuthUI() {
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userGreeting = document.getElementById('user-greeting');
+        const userSection = document.getElementById('user-section');
+        
+        if (this.isAuthenticated && this.currentUser) {
+            // User is logged in
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (logoutBtn) logoutBtn.style.display = 'block';
+            if (userGreeting) {
+                userGreeting.textContent = `Welcome, ${this.currentUser.name || this.currentUser.email}`;
+                userGreeting.style.display = 'block';
+            }
+            if (userSection) userSection.style.display = 'block';
+            
+            // Update user avatar in dropdown
+            const userAvatar = document.querySelector('.user-avatar');
+            if (userAvatar && this.currentUser.name) {
+                userAvatar.textContent = this.currentUser.name.charAt(0).toUpperCase();
+            }
+        } else {
+            // User is not logged in
+            if (loginBtn) loginBtn.style.display = 'block';
+            if (logoutBtn) logoutBtn.style.display = 'none';
+            if (userGreeting) userGreeting.style.display = 'none';
+            if (userSection) userSection.style.display = 'none';
+        }
+    }
 
     addDashboardLink() {
         // Check user role and add appropriate dashboard link
@@ -330,12 +386,20 @@ updateAuthUI() {
     }
 
     updateCartUI() {
-        const cartCountElements = document.querySelectorAll('.cart-count');
-        const count = this.getCartCount();
+        const cartCount = this.getCartCount();
+        const cartBadge = document.getElementById('cart-count');
         
-        cartCountElements.forEach(element => {
-            element.textContent = count;
-        });
+        if (cartBadge) {
+            cartBadge.textContent = cartCount;
+            cartBadge.style.display = cartCount > 0 ? 'inline-block' : 'none';
+        }
+        
+        // Also update any other cart displays
+        const cartTotalEl = document.getElementById('cart-total');
+        if (cartTotalEl) {
+            const total = this.getCartTotal();
+            cartTotalEl.textContent = `MK${total.toFixed(2)}`;
+        }
     }
 
     showNotification(message, type = 'success') {
@@ -357,13 +421,16 @@ updateAuthUI() {
         document.body.appendChild(notification);
         
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentNode) {
+                notification.remove();
+            }
         }, 3000);
     }
 
     setupEventListeners() {
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('logout-btn')) {
+            if (e.target.classList.contains('logout-btn') || 
+                e.target.closest('.logout-btn')) {
                 e.preventDefault();
                 this.logout();
             }
@@ -378,8 +445,10 @@ updateAuthUI() {
             }
         });
     }
-}
+    
 
+
+}
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {

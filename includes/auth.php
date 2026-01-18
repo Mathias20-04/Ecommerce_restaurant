@@ -1,11 +1,6 @@
 <?php
 // includes/auth.php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_once 'config.php';
-require_once 'functions.php'; // Add this to use jsonResponse
 
 class Auth {
     private $conn;
@@ -45,33 +40,58 @@ class Auth {
         
         return "Registration failed: " . $this->conn->error;
     }
-    
-    // User login
+    // In auth.php, update the login method to set email:
     public function login($username, $password) {
-        $stmt = $this->conn->prepare("SELECT user_id, username, password_hash, role, full_name, is_active FROM users WHERE username = ? AND is_active = 1");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if($result->num_rows == 1) {
-            $row = $result->fetch_assoc();
-            
-            if(password_verify($password, $row['password_hash'])) {
-                $_SESSION['user_id'] = $row['user_id'];
-                $_SESSION['username'] = $row['username'];
-                $_SESSION['role'] = $row['role'];
-                $_SESSION['full_name'] = $row['full_name'];
-                
-                return true;
-            }
-        }
-        
-        return false;
-    }
+    $stmt = $this->conn->prepare("SELECT user_id, username, password_hash, role, full_name, email, is_active FROM users WHERE username = ? AND is_active = 1");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $result = $stmt->get_result();
     
+    if($result->num_rows == 1) {
+        $row = $result->fetch_assoc();
+        
+        if(password_verify($password, $row['password_hash'])) {
+            $_SESSION['user_id'] = $row['user_id'];
+            $_SESSION['username'] = $row['username'];
+            $_SESSION['role'] = $row['role'];
+            $_SESSION['full_name'] = $row['full_name'];
+            $_SESSION['email'] = $row['email']; // ADD THIS LINE
+            $_SESSION['last_activity'] = time();
+            
+            // Update last login
+            $update_stmt = $this->conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
+            $update_stmt->bind_param("i", $row['user_id']);
+            $update_stmt->execute();
+            
+            return true;
+        }
+       
+       // Clean up old abandoned carts (older than 7 days)
+      $cleanup_stmt = $this->conn->prepare("
+        DELETE FROM cart 
+        WHERE user_id = ? 
+       AND updated_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+      ");
+       $cleanup_stmt->bind_param("i", $row['user_id']);
+       $cleanup_stmt->execute();
+      }
+    
+    return false;
+}
     // Check if user is logged in
     public function isLoggedIn() {
-        return isset($_SESSION['user_id']);
+        if (!isset($_SESSION['user_id'])) {
+            return false;
+        }
+        
+        // Check session timeout
+        if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > SESSION_TIMEOUT)) {
+            $this->logout();
+            return false;
+        }
+        
+        $_SESSION['last_activity'] = time();
+        return true;
     }
     
     // Get current user data
@@ -108,7 +128,15 @@ class Auth {
     // Logout (API version - no redirect)
     public function logout() {
         $username = $_SESSION['username'] ?? 'Unknown';
-        session_destroy();
+        
+        // Clear all session variables
+        $_SESSION = array();
+        
+        // Destroy the session
+        if (session_id() != "") {
+            session_destroy();
+        }
+        
         return $username;
     }
     

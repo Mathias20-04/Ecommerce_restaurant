@@ -1,7 +1,9 @@
 <?php
+// api/orders/checkout.php - FIXED TO USE DATABASE CART
 require_once '../../includes/config.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/middleware.php';
+require_once '../../includes/cart_cache.php'; 
 
 setCORSHeaders();
 handlePreflight();
@@ -20,15 +22,15 @@ if (!$input) {
 }
 
 // Validate required fields
-$required = ['delivery_address', 'customer_phone'];
+$required = ['delivery_address', 'customer_phone', 'cart_items'];
 foreach ($required as $field) {
     if (empty($input[$field])) {
         jsonResponse(false, "Missing required field: $field", [], 400);
     }
 }
 
-// Check if cart has items
-if (!isset($_SESSION['cart']) || empty($_SESSION['cart'])) {
+// Check if cart has items from the request (NOT session)
+if (empty($input['cart_items']) || !is_array($input['cart_items'])) {
     jsonResponse(false, 'Cart is empty', [], 400);
 }
 
@@ -40,42 +42,46 @@ if (!$conn) {
 try {
     $conn->begin_transaction();
     
-    // Calculate total amount
-    $total_amount = 0;
-    foreach ($_SESSION['cart'] as $item) {
-        $total_amount += $item['price'] * $item['quantity'];
+    // Get cart items from request, not session
+    $cart_items = $input['cart_items'];
+    
+    // Calculate total amount from cart items in request
+    $subtotal = 0;
+    foreach ($cart_items as $item) {
+        // Ensure we have required item properties
+        if (!isset($item['price'], $item['quantity'], $item['meal_id'])) {
+            throw new Exception('Invalid cart item structure');
+        }
+        $subtotal += (float)$item['price'] * (int)$item['quantity'];
     }
     
     // Add delivery fee
     $delivery_fee = 1500;
-    $total_amount += $delivery_fee;
+    $total_amount = $subtotal + $delivery_fee;
     
     // Prepare payment details
-    $payment_method = isset($input['payment_method']) ? $input['payment_method'] : 'cash';
+    $payment_method = $input['payment_method'] ?? 'cash';
     $payment_details = null;
     
-    // SET PAYMENT STATUS BASED ON PAYMENT METHOD
+    // Set payment status based on payment method
     if ($payment_method === 'mobile') {
         $payment_status = 'paid';
-        // Also encode payment details if provided
         if (isset($input['payment_details'])) {
             $payment_details = json_encode($input['payment_details']);
         }
     } else {
-        // For cash on delivery, default to pending
         $payment_status = 'pending';
     }
+    
+    // Get user ID from session (this should be set by requireAuth)
+    $customer_id = $_SESSION['user_id'];
     
     // Create order
     $delivery_address = sanitizeInput($input['delivery_address']);
     $customer_phone = sanitizeInput($input['customer_phone']);
     $special_instructions = sanitizeInput($input['special_instructions'] ?? '');
-    $customer_id = $_SESSION['user_id'];
     
-    // CORRECTED: Include payment_status in the INSERT statement
     $order_stmt = $conn->prepare("INSERT INTO orders (customer_id, total_amount, delivery_address, customer_phone, special_instructions, payment_method, payment_details, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    
-    // CORRECTED: Bind 8 parameters instead of 7
     $order_stmt->bind_param("idssssss", $customer_id, $total_amount, $delivery_address, $customer_phone, $special_instructions, $payment_method, $payment_details, $payment_status);
     
     if (!$order_stmt->execute()) {
@@ -84,17 +90,25 @@ try {
     
     $order_id = $conn->insert_id;
     
-    // Create order items
+    // Create order items from cart items in request
     $item_stmt = $conn->prepare("INSERT INTO order_items (order_id, meal_id, quantity, unit_price, item_total) VALUES (?, ?, ?, ?, ?)");
     
-    foreach ($_SESSION['cart'] as $item) {
-        $item_total = $item['price'] * $item['quantity'];
+    foreach ($cart_items as $item) {
+        $item_total = (float)$item['price'] * (int)$item['quantity'];
         $item_stmt->bind_param("iiidd", $order_id, $item['meal_id'], $item['quantity'], $item['price'], $item_total);
         
         if (!$item_stmt->execute()) {
             throw new Exception("Failed to add order item: " . $conn->error);
         }
     }
+    
+    // Clear user's cart from database after successful order
+    $clear_cart_stmt = $conn->prepare("DELETE FROM cart WHERE user_id = ?");
+    $clear_cart_stmt->bind_param("i", $customer_id);
+    $clear_cart_stmt->execute();
+    
+    // Clear cart cache
+    clearCachedCart($customer_id);
     
     // Create initial order status
     $status_stmt = $conn->prepare("INSERT INTO order_status (order_id, status, updated_by) VALUES (?, 'preparing', ?)");
@@ -106,20 +120,22 @@ try {
     
     $conn->commit();
     
-    // Clear cart after successful order
-    unset($_SESSION['cart']);
-    
-    // Include payment_status in the response
+    // Return success response
     jsonResponse(true, 'Order created successfully', [
         'order_id' => $order_id,
         'total_amount' => $total_amount,
+        'subtotal' => $subtotal,
+        'delivery_fee' => $delivery_fee,
         'delivery_address' => $delivery_address,
         'payment_method' => $payment_method,
-        'payment_status' => $payment_status  // Added this
+        'payment_status' => $payment_status
     ], 201);
     
 } catch (Exception $e) {
-    $conn->rollback();
+    if (isset($conn)) {
+        $conn->rollback();
+    }
+    error_log("Checkout error: " . $e->getMessage());
     jsonResponse(false, 'Checkout failed: ' . $e->getMessage(), [], 500);
 } finally {
     closeDBConnection($conn);

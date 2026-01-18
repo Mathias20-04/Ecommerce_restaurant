@@ -459,7 +459,7 @@ closeDBConnection($conn);
                 </div>
                 <div class="summary-row">
                     <span>Delivery Fee:</span>
-                    <span id="order-delivery">MK 1,500.00</span>
+                    <span id="order-delivery">MK 1000.00</span>
                 </div>
                 <div class="summary-row total">
                     <span>Total:</span>

@@ -8,6 +8,7 @@ class MenuManager {
         this.searchTimeout = null;
         this.currentSlide = 0;
         this.sliderInterval = null;
+        this.apiBaseUrl = '/projects/aunt-joy-restaurant/api';
         this.init();
     }
 
@@ -19,10 +20,31 @@ class MenuManager {
         this.startSlider();
     }
 
+    async makeApiCall(endpoint) {
+        try {
+            const response = await fetch(this.apiBaseUrl + endpoint, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('API call failed:', error);
+            throw error;
+        }
+    }
+
     async loadCategories() {
         try {
-            const data = await app.apiCall('/categories/list.php');
-            this.categories = data.data.categories;
+            const data = await this.makeApiCall('/categories/list.php');
+            this.categories = data.data?.categories || data.categories || [];
             console.log('Loaded categories:', this.categories);
         } catch (error) {
             console.error('Failed to load categories:', error);
@@ -32,8 +54,8 @@ class MenuManager {
 
     async loadMeals() {
         try {
-            const data = await app.apiCall('/meals/list.php');
-            this.meals = data.data.meals;
+            const data = await this.makeApiCall('/meals/list.php');
+            this.meals = data.data?.meals || data.meals || [];
             console.log('Loaded meals:', this.meals);
         } catch (error) {
             console.error('Failed to load meals:', error);
@@ -54,13 +76,21 @@ class MenuManager {
         
         if (slides.length === 0) return;
         
-        slides[this.currentSlide].classList.remove('active');
-        dots[this.currentSlide].classList.remove('active');
+        if (slides[this.currentSlide]) {
+            slides[this.currentSlide].classList.remove('active');
+        }
+        if (dots[this.currentSlide]) {
+            dots[this.currentSlide].classList.remove('active');
+        }
         
         this.currentSlide = (this.currentSlide + 1) % slides.length;
         
-        slides[this.currentSlide].classList.add('active');
-        dots[this.currentSlide].classList.add('active');
+        if (slides[this.currentSlide]) {
+            slides[this.currentSlide].classList.add('active');
+        }
+        if (dots[this.currentSlide]) {
+            dots[this.currentSlide].classList.add('active');
+        }
     }
 
     goToSlide(slideIndex) {
@@ -69,13 +99,21 @@ class MenuManager {
         
         if (slides.length === 0) return;
         
-        slides[this.currentSlide].classList.remove('active');
-        dots[this.currentSlide].classList.remove('active');
+        if (slides[this.currentSlide]) {
+            slides[this.currentSlide].classList.remove('active');
+        }
+        if (dots[this.currentSlide]) {
+            dots[this.currentSlide].classList.remove('active');
+        }
         
         this.currentSlide = slideIndex;
         
-        slides[this.currentSlide].classList.add('active');
-        dots[this.currentSlide].classList.add('active');
+        if (slides[this.currentSlide]) {
+            slides[this.currentSlide].classList.add('active');
+        }
+        if (dots[this.currentSlide]) {
+            dots[this.currentSlide].classList.add('active');
+        }
         
         clearInterval(this.sliderInterval);
         this.startSlider();
@@ -119,6 +157,7 @@ class MenuManager {
 
     showSearchResults(results, searchTerm) {
         const resultsContainer = document.getElementById('search-results');
+        if (!resultsContainer) return;
         
         if (results.length === 0) {
             resultsContainer.innerHTML = `
@@ -145,13 +184,17 @@ class MenuManager {
 
     hideSearchResults() {
         const resultsContainer = document.getElementById('search-results');
-        resultsContainer.classList.remove('active');
+        if (resultsContainer) {
+            resultsContainer.classList.remove('active');
+        }
     }
 
     renderFilteredMeals(filteredMeals) {
         const mealsGrid = document.getElementById('meals-grid');
         const noMeals = document.getElementById('no-meals');
         const loading = document.getElementById('meals-loading');
+        
+        if (!mealsGrid) return;
         
         if (loading) loading.classList.add('hidden');
 
@@ -199,7 +242,10 @@ class MenuManager {
         
         // Hide search results and clear search input
         this.hideSearchResults();
-        document.getElementById('global-search-input').value = '';
+        const searchInput = document.getElementById('global-search-input');
+        if (searchInput) {
+            searchInput.value = '';
+        }
         
         // Scroll to the specific meal (optional enhancement)
         setTimeout(() => {
@@ -262,9 +308,16 @@ class MenuManager {
 
         this.currentCategory = category;
         
-        document.getElementById('categories').style.display = 'none';
-        document.getElementById('meals-section').classList.remove('hidden');
-        document.getElementById('current-category-title').textContent = category.category_name;
+        const categoriesSection = document.getElementById('categories');
+        const mealsSection = document.getElementById('meals-section');
+        
+        if (categoriesSection) categoriesSection.style.display = 'none';
+        if (mealsSection) mealsSection.classList.remove('hidden');
+        
+        const categoryTitle = document.getElementById('current-category-title');
+        if (categoryTitle) {
+            categoryTitle.textContent = category.category_name;
+        }
         
         this.filteredMeals = this.meals.filter(meal => meal.category_id == categoryId);
 
@@ -278,16 +331,22 @@ class MenuManager {
             this.renderMeals();
             
             // Scroll to meals section
-            document.getElementById('meals-section').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
+            if (mealsSection) {
+                mealsSection.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
         }, 300);
     }
 
     showAllCategories() {
-        document.getElementById('categories').style.display = 'block';
-        document.getElementById('meals-section').classList.add('hidden');
+        const categoriesSection = document.getElementById('categories');
+        const mealsSection = document.getElementById('meals-section');
+        
+        if (categoriesSection) categoriesSection.style.display = 'block';
+        if (mealsSection) mealsSection.classList.add('hidden');
+        
         this.currentCategory = null;
         this.hideSearchResults();
         
@@ -299,16 +358,20 @@ class MenuManager {
         }
         
         // Scroll to categories section
-        document.getElementById('categories').scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-        });
+        if (categoriesSection) {
+            categoriesSection.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }
     }
 
     renderMeals() {
         const mealsGrid = document.getElementById('meals-grid');
         const noMeals = document.getElementById('no-meals');
         const loading = document.getElementById('meals-loading');
+        
+        if (!mealsGrid) return;
         
         if (loading) loading.classList.add('hidden');
 
@@ -350,7 +413,27 @@ class MenuManager {
 
     showError(message) {
         console.error(message);
-        app.showNotification(message, 'error');
+        // Simple notification without depending on app
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f44336;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
     }
 
     setupEventListeners() {
@@ -368,19 +451,30 @@ class MenuManager {
             }
 
             // Back action
-            if (e.target.id === 'back-to-categories') {
+            if (e.target.id === 'back-to-categories' || e.target.closest('#back-to-categories')) {
                 e.preventDefault();
                 this.showAllCategories();
             }
 
-            // Add to cart
-            if (e.target.classList.contains('add-to-cart')) {
-                const mealId = e.target.getAttribute('data-meal-id');
+            // Add to cart - Use window.app if available, otherwise use window.addToCart
+            if (e.target.classList.contains('add-to-cart') || e.target.closest('.add-to-cart')) {
+                const button = e.target.classList.contains('add-to-cart') ? e.target : e.target.closest('.add-to-cart');
+                const mealId = button.getAttribute('data-meal-id');
                 const meal = this.meals.find(m => m.meal_id == mealId);
-                if (meal) app.addToCart(meal);
+                
+                if (meal) {
+                    if (window.app && typeof window.app.addToCart === 'function') {
+                        window.app.addToCart(meal);
+                    } else if (typeof window.addToCart === 'function') {
+                        window.addToCart(meal);
+                    } else {
+                        // Fallback
+                        this.showError('Please login to add items to cart');
+                    }
+                }
             }
 
-            // Click search result - UPDATED with category navigation
+            // Click search result
             const searchResult = e.target.closest('.search-result-item');
             if (searchResult) {
                 const mealId = searchResult.getAttribute('data-meal-id');
@@ -413,6 +507,7 @@ class MenuManager {
     }
 }
 
+// Initialize menu manager
 document.addEventListener('DOMContentLoaded', () => {
     window.menuManager = new MenuManager();
 });

@@ -1,51 +1,14 @@
 <?php
 // includes/functions.php
 
-// Define upload constants
-if (!defined('MAX_FILE_SIZE')) {
-    define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
-}
-if (!defined('ALLOWED_IMAGE_TYPES')) {
-    define('ALLOWED_IMAGE_TYPES', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
-}
-if (!defined('UPLOAD_DIR')) {
-    define('UPLOAD_DIR', '../../assets/images/meals/');
-}
+// Include config file to get DB connection function and constants
+require_once __DIR__ . '/config.php';
 
-// Default CORS origin (override in config.php if you need a stricter origin)
-if (!defined('ALLOWED_ORIGIN')) {
-    define('ALLOWED_ORIGIN', '*');
-}
+// Note: We removed getDBConnection() and closeDBConnection() since they're in config.php
+// Also removed jsonResponse() since it's in config.php
 
-function getDBConnection() {
-    global $db_config;
-    
-    if (!isset($db_config)) {
-        die("Database configuration not found. Please check your config.php file.");
-    }
-    
-    $conn = new mysqli(
-        $db_config['host'], 
-        $db_config['username'], 
-        $db_config['password'], 
-        $db_config['database']
-    );
-    
-    if ($conn->connect_error) {
-        error_log("Database connection failed: " . $conn->connect_error);
-        die("Database connection failed. Please try again later.");
-    }
-    
-    return $conn;
-}
+// Utility functions only
 
-function closeDBConnection($conn) {
-    if ($conn) {
-        $conn->close();
-    }
-}
-
-// Your existing functions continue below...
 function sanitizeInput($data) {
     if (is_array($data)) {
         return array_map('sanitizeInput', $data);
@@ -54,20 +17,6 @@ function sanitizeInput($data) {
     $data = stripslashes($data);
     $data = htmlspecialchars($data);
     return $data;
-}
-
-
-
-// JSON response helper
-function jsonResponse($success, $message = '', $data = [], $statusCode = 200) {
-    http_response_code($statusCode);
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => $success,
-        'message' => $message,
-        'data' => $data
-    ]);
-    exit;
 }
 
 // Set CORS headers
@@ -86,7 +35,7 @@ function handlePreflight() {
     }
 }
 
-// Frontend redirect (
+// Frontend redirect
 function redirect($url) {
     header("Location: " . $url);
     exit;
@@ -107,7 +56,6 @@ function setAlert($message, $type = 'info') {
         'type' => $type
     ];
 }
-
 
 function handleImageUpload($file, $meal_id) {
     try {
@@ -167,10 +115,8 @@ function deleteImageFile($image_path) {
     }
 }
 
-
-
 function getAvailableMeals($category_id = null, $limit = null) {
-    $conn = getDBConnection();
+    $conn = getDBConnection(); // This function is now from config.php
     if (!$conn) return [];
     
     try {
@@ -210,12 +156,12 @@ function getAvailableMeals($category_id = null, $limit = null) {
         error_log('Error fetching meals: ' . $e->getMessage());
         return [];
     } finally {
-        closeDBConnection($conn);
+        closeDBConnection($conn); // This function is now from config.php
     }
 }
 
 function getMealCategories() {
-    $conn = getDBConnection();
+    $conn = getDBConnection(); // This function is now from config.php
     if (!$conn) return [];
     
     try {
@@ -233,7 +179,7 @@ function getMealCategories() {
         error_log('Error fetching categories: ' . $e->getMessage());
         return [];
     } finally {
-        closeDBConnection($conn);
+        closeDBConnection($conn); // This function is now from config.php
     }
 }
 ?>

@@ -2,50 +2,91 @@
 class CheckoutManager {
     constructor() {
         this.cart = [];
+        this.apiBaseUrl = '/projects/aunt-joy-restaurant/api';
         this.init();
     }
 
-    init() {
-        this.loadCart();
+    async init() {
+    await this.loadCart(); // Wait for cart to load
+    if (this.cart.length > 0) {
         this.renderOrderSummary();
         this.setupEventListeners();
         this.validateForm();
     }
+  }
 
-    loadCart() {
-        const savedCart = localStorage.getItem('cart');
-        this.cart = savedCart ? JSON.parse(savedCart) : [];
+ async loadCart() {
+    try {
+        console.log('Loading cart for checkout...');
         
-        if (this.cart.length === 0) {
-            window.location.href = 'cart.php';
-            return;
+        // Fetch cart from server API instead of localStorage
+        const response = await fetch('/projects/aunt-joy-restaurant/api/cart/get.php', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
+        
+        const data = await response.json();
+        console.log('Checkout cart data:', data);
+        
+        if (data.success && data.data && Array.isArray(data.data.cart)) {
+            this.cart = data.data.cart;
+            console.log('Cart loaded for checkout:', this.cart.length, 'items');
+            
+            if (this.cart.length === 0) {
+                this.showNotification('Your cart is empty', 'error');
+                setTimeout(() => {
+                    window.location.href = '/projects/aunt-joy-restaurant/pages/cart.php';
+                }, 2000);
+                return;
+            }
+        } else {
+            console.error('Invalid cart data structure:', data);
+            this.cart = [];
+            throw new Error('Failed to load cart');
+        }
+    } catch (error) {
+        console.error('Failed to load cart for checkout:', error);
+        this.showNotification('Failed to load cart. Please try again.', 'error');
+        this.cart = [];
+        
+        // Redirect to cart page if empty
+        setTimeout(() => {
+            window.location.href = '/projects/aunt-joy-restaurant/pages/cart.php';
+        }, 2000);
     }
+}
 
-    renderOrderSummary() {
-        const orderItemsContainer = document.getElementById('order-items');
-        const subtotal = this.cart.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
-        const deliveryFee = 1500;
-        const total = subtotal + deliveryFee;
+  renderOrderSummary() {
+    const orderItemsContainer = document.getElementById('order-items');
+    const subtotal = this.cart.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
+    const deliveryFee = 1500;
+    const total = subtotal + deliveryFee;
 
-        // Render order items
-        orderItemsContainer.innerHTML = this.cart.map(item => `
-            <div class="order-item">
-                <div class="item-info">
-                    <div class="item-name">${item.name}</div>
-                    <div class="item-quantity">Qty: ${item.quantity}</div>
-                </div>
-                <div class="item-price">
-                    MK ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                </div>
+    // Render order items - FIX item.name to item.meal_name
+    orderItemsContainer.innerHTML = this.cart.map(item => `
+        <div class="order-item">
+            <div class="item-info">
+                <div class="item-name">${item.meal_name}</div>
+                <div class="item-quantity">Qty: ${item.quantity}</div>
             </div>
-        `).join('');
+            <div class="item-price">
+                MK ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+            </div>
+        </div>
+    `).join('');
 
-        // Update totals
-        document.getElementById('order-subtotal').textContent = `MK ${subtotal.toFixed(2)}`;
-        document.getElementById('order-delivery').textContent = `MK ${deliveryFee.toFixed(2)}`;
-        document.getElementById('order-total').textContent = `MK ${total.toFixed(2)}`;
-    }
+    // Update totals
+    document.getElementById('order-subtotal').textContent = `MK ${subtotal.toFixed(2)}`;
+    document.getElementById('order-delivery').textContent = `MK ${deliveryFee.toFixed(2)}`;
+    document.getElementById('order-total').textContent = `MK ${total.toFixed(2)}`;
+}
 
     setupEventListeners() {
         // Payment method selection
@@ -291,8 +332,7 @@ getProviderErrorMessage(number, provider) {
         
         return isValid;
     }
-
-    async placeOrder() {
+async placeOrder() {
     if (!this.validateForm()) {
         this.showNotification('Please fix the errors in the form', 'error');
         return;
@@ -321,9 +361,17 @@ getProviderErrorMessage(number, provider) {
     placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Placing Order...';
 
     try {
-        // Sync cart to session
-        await this.syncCartToSession();
+        // MAP CART ITEMS TO THE CORRECT STRUCTURE - ADD THIS
+        const cartItemsForOrder = this.cart.map(item => ({
+            meal_id: item.meal_id,
+            quantity: item.quantity || 1,
+            price: parseFloat(item.price) || 0
+            // Optionally include name for debugging
+            // meal_name: item.meal_name
+        }));
         
+        console.log('Cart items for order:', cartItemsForOrder);
+
         // Prepare complete order data
         const orderData = {
             delivery_address: document.getElementById('delivery-address').value.trim(),
@@ -334,15 +382,14 @@ getProviderErrorMessage(number, provider) {
             total_amount: totalAmount.toFixed(2),
             subtotal: subtotal.toFixed(2),
             delivery_fee: deliveryFee.toFixed(2),
-            cart_items: this.cart ,
+            cart_items: cartItemsForOrder,  // Now defined
             payment_status: paymentMethod === 'mobile' ? 'paid' : 'pending'
-            
         };
 
         console.log('Placing order with data:', orderData);
 
         // Call checkout API
-        const response = await this.apiCall('../api/orders/checkout.php', {
+        const response = await this.apiCall('/orders/checkout.php', {
             method: 'POST',
             body: JSON.stringify(orderData)
         });
@@ -352,14 +399,30 @@ getProviderErrorMessage(number, provider) {
         if (response.success) {
             this.showNotification('Order placed successfully!', 'success');
             
-            // Clear cart
-            localStorage.removeItem('cart');
+            // Note: The server now clears the cart automatically, so you don't need to clear it here
+            // Remove this block or keep as backup
+            /*
+            try {
+                // Clear each item from server cart
+                for (const item of this.cart) {
+                    await this.apiCall('/cart/update.php', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            meal_id: item.meal_id,
+                            quantity: 0
+                        })
+                    });
+                }
+            } catch (clearError) {
+                console.warn('Failed to clear cart after order:', clearError);
+            }
+            */
+            
             this.cart = [];
-            this.updateCartUI();
             
             // Redirect to orders page
             setTimeout(() => {
-                window.location.href = `orders.php?order_id=${response.data.order_id}`;
+                window.location.href = `/projects/aunt-joy-restaurant/public/orders.php?order_id=${response.data.order_id}`;
             }, 2000);
             
         } else {
@@ -384,53 +447,47 @@ getProviderErrorMessage(number, provider) {
         placeOrderBtn.disabled = false;
         placeOrderBtn.innerHTML = 'Place Order';
     }
-}
+     }
 
-    async syncCartToSession() {
-        try {
-            // Use the correct API endpoint path - CORRECTED
-            const response = await this.apiCall('../api/cart/sync.php', {
-                method: 'POST',
-                body: JSON.stringify({
-                    cart_items: this.cart
-                })
-            });
-            console.log('Cart synced to session successfully', response);
-            return response;
-        } catch (error) {
-            console.error('Failed to sync cart to session:', error);
-            // Don't throw error, continue with order placement
-            return { success: true }; // Continue anyway
-        }
-    }
-    
-    // Helper method for API calls
-    async apiCall(url, options = {}) {
-        try {
-            const defaultOptions = {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'same-origin'
-            };
+     // Helper method for API calls
+    async apiCall(endpoint, options = {}) {
+    try {
+        // Remove ../api from endpoint if present
+        const cleanEndpoint = endpoint.replace('../api', '');
+        const url = this.apiBaseUrl + cleanEndpoint;
+        
+        console.log('API call to:', url);
+        
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include' // Important for sessions
+        };
+        
+        const response = await fetch(url, { ...defaultOptions, ...options });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            const data = await response.json();
             
-            const response = await fetch(url, { ...defaultOptions, ...options });
-            
-            // Check if response is JSON
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-                return await response.json();
-            } else {
-                const text = await response.text();
-                console.error('Non-JSON response:', text.substring(0, 200));
-                throw new Error('Server returned non-JSON response');
+            // Log non-successful responses for debugging
+            if (!response.ok || (data && !data.success)) {
+                console.error('API error response:', data);
             }
-        } catch (error) {
-            console.error('API call failed:', error);
-            throw error;
+            
+            return data;
+        } else {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server returned non-JSON response');
         }
+    } catch (error) {
+        console.error('API call failed:', error);
+        throw error;
     }
-    
+ }
     // Helper method to show notifications
     showNotification(message, type = 'success') {
         // Create notification element
@@ -473,16 +530,26 @@ getProviderErrorMessage(number, provider) {
     
     // Helper method to update cart UI
     updateCartUI() {
-        const cartCountElements = document.querySelectorAll('.cart-count');
+    const cartCountElements = document.querySelectorAll('.cart-count');
+    if (cartCountElements.length > 0) {
+        const totalItems = this.cart.reduce((sum, item) => sum + item.quantity, 0);
         cartCountElements.forEach(element => {
-            element.textContent = this.cart.reduce((sum, item) => sum + item.quantity, 0);
+            element.textContent = totalItems;
         });
     }
+}
 }
 
 // Initialize checkout manager
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('=== CHECKOUT INIT ===');
     window.checkoutManager = new CheckoutManager();
+    
+    // Debug: Check cart after initialization
+    setTimeout(() => {
+        console.log('Cart after init:', window.checkoutManager.cart);
+        console.log('Cart length:', window.checkoutManager.cart.length);
+    }, 1000);
     
     // Add CSS animation for notifications
     if (!document.querySelector('#notification-animation')) {

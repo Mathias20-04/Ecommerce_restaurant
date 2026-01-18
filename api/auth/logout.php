@@ -1,32 +1,38 @@
 <?php
 // api/auth/logout.php
-require_once '../../includes/config.php';
-require_once '../../includes/functions.php';
+require_once __DIR__ . '/../includes/functions.php';
 require_once '../../includes/auth.php';
 
-// Set CORS headers
-setCORSHeaders();
+header('Access-Control-Allow-Origin: ' . ALLOWED_ORIGIN);
+header('Access-Control-Allow-Credentials: true');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Content-Type: application/json');
 
-// Handle preflight request
-handlePreflight();
-
-// Only allow POST requests
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    jsonResponse(false, 'Method not allowed', [], 405);
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
 }
 
-// Ensure session is started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
+// Create auth instance
 $auth = new Auth();
 
-if ($auth->isLoggedIn()) {
-    $username = $auth->logout();
-    jsonResponse(true, 'Logout successful', ['username' => $username]);
-} else {
-    jsonResponse(false, 'No user is logged in', [], 400);
+// Clear user's cart from database before logout
+if (isset($_SESSION['user_id'])) {
+    try {
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("DELETE FROM cart WHERE user_id = ?");
+        $stmt->bind_param("i", $_SESSION['user_id']);
+        $stmt->execute();
+        $stmt->close();
+        closeDBConnection($conn);
+    } catch (Exception $e) {
+        // Log error but continue with logout
+        error_log("Cart cleanup on logout failed: " . $e->getMessage());
+    }
 }
+
+// Perform logout
+$username = $auth->logout();
+
+jsonResponse(true, "Goodbye, $username! You have been logged out.");
 ?>

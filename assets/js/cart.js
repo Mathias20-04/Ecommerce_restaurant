@@ -2,6 +2,7 @@ class CartManager {
     constructor() {
         this.cart = [];
         this.savedForLater = [];
+        this.apiBaseUrl = '/projects/aunt-joy-restaurant/api';
         this.init();
     }
 
@@ -13,33 +14,45 @@ class CartManager {
         this.updateCartCount();
     }
 
-    async loadCart() {
-        try {
+
+   async loadCart() {
+    try {
             console.log('Loading cart data...');
-            const response = await fetch('/projects/aunt-joy-restaurant/api/cart/get.php', {
+            // Use the apiBaseUrl
+            const response = await fetch(`${this.apiBaseUrl}/cart/get.php`, {  
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 credentials: 'include'
             });
-            
-            console.log('Cart API response status:', response.status);
-            const data = await response.json();
-            console.log('Cart API response data:', data);
-            
-            if (data.success) {
-                this.cart = data.data.cart || [];
-                console.log('Cart items loaded:', this.cart);
+        
+        console.log('Cart API response status:', response.status);
+        const data = await response.json();
+        console.log('Full API response:', data);  
+        
+        if (data.success) {
+            // Check the actual structure
+            if (data.data && Array.isArray(data.data.cart)) {
+                this.cart = data.data.cart;
+                console.log('Cart items loaded:', this.cart.length);
+            } else if (Array.isArray(data.data)) {
+                
+                this.cart = data.data;
+                console.log('Cart items loaded (alternative structure):', this.cart.length);
             } else {
-                console.error('Cart API returned error:', data.message);
+                console.error('Unexpected cart data structure:', data);
                 this.cart = [];
             }
-        } catch (error) {
-            console.error('Failed to load cart:', error);
+        } else {
+            console.error('Cart API returned error:', data.message);
             this.cart = [];
         }
+    } catch (error) {
+        console.error('Failed to load cart:', error);
+        this.cart = [];
     }
+}
 
     // Load saved for later items from localStorage
     loadSavedForLater() {
@@ -224,7 +237,7 @@ class CartManager {
             const item = this.cart[itemIndex];
             
             // Remove from cart via API
-            const response = await fetch('/projects/aunt-joy-restaurant/api/cart/update.php', {
+            const response = await fetch(`${this.apiBaseUrl}/cart/update.php`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -278,7 +291,7 @@ class CartManager {
             const item = this.savedForLater[itemIndex];
             
             // Add to cart via API
-            const response = await fetch('/projects/aunt-joy-restaurant/api/cart/add.php', {
+            const response = await fetch(`${this.apiBaseUrl}/cart/add.php`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -341,7 +354,7 @@ class CartManager {
         try {
             console.log('Removing meal from cart:', mealId);
             
-            const response = await fetch('/projects/aunt-joy-restaurant/api/cart/update.php', {
+            const response = await fetch(`${this.apiBaseUrl}/cart/update.php`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -417,7 +430,7 @@ class CartManager {
         try {
             console.log('Updating quantity for meal', mealId, 'to', quantity);
             
-            const response = await fetch('/projects/aunt-joy-restaurant/api/cart/update.php', {
+            const response = await fetch(`${this.apiBaseUrl}/cart/update.php`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -512,7 +525,11 @@ class CartManager {
         this.renderCart();
         this.updateCartCount();
     }
+
+     
+    
 }
+
 
 // Initialize cart manager when page loads
 document.addEventListener('DOMContentLoaded', () => {

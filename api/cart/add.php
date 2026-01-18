@@ -1,13 +1,14 @@
 <?php
+// api/cart/add.php - WITH CACHE INVALIDATION
 require_once '../../includes/config.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/middleware.php';
+require_once '../../includes/cart_cache.php'; // Add this
 
 setCORSHeaders();
 handlePreflight();
 header('Content-Type: application/json');
 
-// User must be logged in to add to cart
 $auth = requireAuth();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -30,6 +31,8 @@ if ($quantity < 1) {
     jsonResponse(false, 'Quantity must be at least 1', [], 400);
 }
 
+$user_id = $_SESSION['user_id'];
+
 $conn = getDBConnection();
 if (!$conn) {
     jsonResponse(false, 'Database connection failed', [], 500);
@@ -51,31 +54,45 @@ try {
         jsonResponse(false, 'Meal is not available', [], 400);
     }
     
-    // Initialize cart if not exists
-    if (!isset($_SESSION['cart'])) {
-        $_SESSION['cart'] = [];
+    // Check if item already exists in user's cart (database)
+    $check_stmt = $conn->prepare("SELECT cart_id, quantity FROM cart WHERE user_id = ? AND meal_id = ?");
+    $check_stmt->bind_param("ii", $user_id, $meal_id);
+    $check_stmt->execute();
+    $check_result = $check_stmt->get_result();
+    
+    if ($check_result->num_rows > 0) {
+        // Update existing cart item in database
+        $row = $check_result->fetch_assoc();
+        $new_quantity = $row['quantity'] + $quantity;
+        
+        $update_stmt = $conn->prepare("UPDATE cart SET quantity = ?, updated_at = NOW() WHERE cart_id = ?");
+        $update_stmt->bind_param("ii", $new_quantity, $row['cart_id']);
+        $update_stmt->execute();
+        
+        $message = 'Cart updated';
+    } else {
+        // Insert new cart item in database
+        $insert_stmt = $conn->prepare("INSERT INTO cart (user_id, meal_id, quantity) VALUES (?, ?, ?)");
+        $insert_stmt->bind_param("iii", $user_id, $meal_id, $quantity);
+        $insert_stmt->execute();
+        
+        $message = 'Item added to cart';
     }
     
-    // Add or update item in cart
-    $found = false;
-    foreach ($_SESSION['cart'] as &$item) {
-        if ($item['meal_id'] == $meal_id) {
-            $item['quantity'] += $quantity;
-            $found = true;
-            break;
-        }
-    }
+    // INVALIDATE CACHE - clear cache so next get will fetch fresh data
+    clearCachedCart($user_id);
     
-    if (!$found) {
-        $_SESSION['cart'][] = [
-            'meal_id' => $meal_id,
-            'meal_name' => $meal['meal_name'],
-            'price' => floatval($meal['price']),
-            'quantity' => $quantity
-        ];
-    }
+    // Get updated cart count for immediate response
+    $count_stmt = $conn->prepare("SELECT COUNT(*) as item_count, SUM(quantity) as total_quantity FROM cart WHERE user_id = ?");
+    $count_stmt->bind_param("i", $user_id);
+    $count_stmt->execute();
+    $count_result = $count_stmt->get_result();
+    $count_data = $count_result->fetch_assoc();
     
-    jsonResponse(true, 'Item added to cart', ['cart' => $_SESSION['cart']]);
+    jsonResponse(true, $message, [
+        'item_count' => $count_data['item_count'] ?? 0,
+        'total_quantity' => $count_data['total_quantity'] ?? 0
+    ]);
     
 } catch (Exception $e) {
     jsonResponse(false, 'Error adding to cart: ' . $e->getMessage(), [], 500);

@@ -1,13 +1,12 @@
 <?php
-// api/auth/login.php
-require_once '../../includes/config.php';
+// api/auth/login.php - ADD EMAIL TO SESSION
+require_once __DIR__ . '/../includes/functions.php';
 require_once '../../includes/auth.php';
 
-// Enable CORS
+// Enable CORS properly
 header('Access-Control-Allow-Origin: ' . ALLOWED_ORIGIN);
 header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Content-Type: application/json');
 
 // Handle preflight OPTIONS request
@@ -17,43 +16,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
-    exit;
+    jsonResponse(false, 'Method not allowed', [], 405);
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
 
 if (!$input) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Invalid JSON input']);
-    exit;
+    jsonResponse(false, 'Invalid JSON input', [], 400);
 }
 
-$username = $input['username'] ?? '';
+$username = trim($input['username'] ?? '');
 $password = $input['password'] ?? '';
 
 if (empty($username) || empty($password)) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Username and password are required']);
-    exit;
+    jsonResponse(false, 'Username and password are required', [], 400);
 }
 
 $auth = new Auth();
 
+// In your login.php, add this:
 if ($auth->login($username, $password)) {
-    echo json_encode([
-        'success' => true,
-        'message' => 'Login successful',
-        'user' => [
-            'user_id' => $_SESSION['user_id'],
-            'username' => $_SESSION['username'],
-            'role' => $_SESSION['role'],
-            'full_name' => $_SESSION['full_name']
-        ]
+    $user = $auth->getCurrentUser();
+    
+    // IMPORTANT: Set all session variables
+    $_SESSION['logged_in'] = true;
+    $_SESSION['user_id'] = $user['user_id'];
+    $_SESSION['username'] = $user['username'];
+    $_SESSION['role'] = $user['role'];
+    $_SESSION['full_name'] = $user['full_name'];
+    $_SESSION['email'] = $user['email'];
+    $_SESSION['last_activity'] = time();
+    
+    jsonResponse(true, 'Login successful', [
+        'user' => $user
     ]);
 } else {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
+    jsonResponse(false, 'Invalid username or password', [], 401);
 }
 ?>

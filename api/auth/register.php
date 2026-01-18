@@ -1,8 +1,7 @@
 <?php
 // api/register.php
-require_once '../../includes/config.php';
+require_once __DIR__ . '/../includes/functions.php';
 require_once '../../includes/auth.php';
-require_once '../../includes/functions.php';
 
 // Enable CORS
 header('Access-Control-Allow-Origin: ' . ALLOWED_ORIGIN);
